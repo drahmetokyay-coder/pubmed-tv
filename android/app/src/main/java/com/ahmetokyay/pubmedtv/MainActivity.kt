@@ -11,7 +11,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        slideshow = Slideshow(this)
+        // adb shell am start -n com.ahmetokyay.pubmedtv/.MainActivity --ez demo true
+        slideshow = Slideshow(this, demo = intent.getBooleanExtra("demo", false))
         setContentView(slideshow.view)
     }
 

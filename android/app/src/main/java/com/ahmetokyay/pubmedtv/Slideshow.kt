@@ -34,6 +34,14 @@ class Slideshow(private val context: Context, demo: Boolean = false) {
     private var paintingQueue = ArrayDeque<Painting>()
     private var step = 0  // 0 = makale, 1..PAINTINGS_PER_ARTICLE = tablo
     private var currentBitmap: Bitmap? = null
+
+    // kumandayla geri dönülebilsin diye gösterilen slaytların geçmişi
+    private sealed interface Slide
+    private class ArticleSlide(val article: Article) : Slide
+    private class PaintingSlide(val painting: Painting) : Slide
+    private val history = ArrayList<Slide>()
+    private var pos = -1
+    private var fading = false
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
     private var articles: List<Article> = emptyList()
@@ -65,7 +73,7 @@ class Slideshow(private val context: Context, demo: Boolean = false) {
         paintingView.visibility = View.GONE
     }
 
-    private val next = Runnable { advance() }
+    private val next = Runnable { advance() }  // zamanlayıcı
     private val refresh = object : Runnable {
         override fun run() {
             io.execute {
@@ -83,8 +91,21 @@ class Slideshow(private val context: Context, demo: Boolean = false) {
         paintings = paintingStore.load()
         main.post(refresh)
         step = 0
-        show(nextArticle(), animate = false)
+        history.clear()
+        val first = ArticleSlide(nextArticle())
+        push(first)
+        show(first.article, animate = false)
         prefetch()
+    }
+
+    /** kumanda: sağ ok */
+    fun next() {
+        if (running && !fading) advance()
+    }
+
+    /** kumanda: sol ok */
+    fun previous() {
+        if (running && !fading && pos > 0) transition(history[--pos])
     }
 
     fun stop() {
@@ -113,13 +134,32 @@ class Slideshow(private val context: Context, demo: Boolean = false) {
 
     private fun advance() {
         if (!running) return
+        if (pos < history.size - 1) return transition(history[++pos])  // geri gidilmişse ileri sar
         step = (step + 1) % (PAINTINGS_PER_ARTICLE + 1)
         val painting = if (step == 0) null else nextCachedPainting()
         if (painting == null) step = 0  // indirilmiş tablo yoksa makaleye geç
+        val slide = if (painting == null) ArticleSlide(nextArticle()) else PaintingSlide(painting)
+        push(slide)
+        transition(slide)
+        prefetch()
+    }
+
+    private fun push(slide: Slide) {
+        history.add(slide)
+        if (history.size > MAX_HISTORY) history.removeAt(0)
+        pos = history.size - 1
+    }
+
+    private fun transition(slide: Slide) {
+        main.removeCallbacks(next)
+        fading = true
         val outgoing = if (articleView.visibility == View.VISIBLE) card else paintingCard
         outgoing.animate().alpha(0f).setDuration(FADE_MS).withEndAction {
-            if (painting == null) show(nextArticle(), animate = true) else showPainting(painting)
-            prefetch()
+            fading = false
+            when (slide) {
+                is ArticleSlide -> show(slide.article, animate = true)
+                is PaintingSlide -> showPainting(slide.painting)
+            }
         }.start()
     }
 
@@ -202,6 +242,7 @@ class Slideshow(private val context: Context, demo: Boolean = false) {
         const val PAINTING_MS = 15 * 60 * 1000L
         const val PAINTINGS_PER_ARTICLE = 5
         private const val PREFETCH = 3
+        private const val MAX_HISTORY = 50
         const val FADE_MS = 500L
         const val REFRESH_MS = 6 * 60 * 60 * 1000L
         private val MONTHS = listOf("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",

@@ -2,6 +2,7 @@ package com.ahmetokyay.pubmedtv
 
 import android.app.Activity
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.WindowManager
 
 /** Slaytları elle açmak için; geri tuşu ile çıkılır. */
@@ -14,6 +15,12 @@ class MainActivity : Activity() {
         // adb shell am start -n com.ahmetokyay.pubmedtv/.MainActivity --ez demo true
         slideshow = Slideshow(this, demo = intent.getBooleanExtra("demo", false))
         setContentView(slideshow.view)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = when (keyCode) {
+        KeyEvent.KEYCODE_DPAD_RIGHT -> { slideshow.next(); true }
+        KeyEvent.KEYCODE_DPAD_LEFT -> { slideshow.previous(); true }
+        else -> super.onKeyDown(keyCode, event)
     }
 
     override fun onStart() {

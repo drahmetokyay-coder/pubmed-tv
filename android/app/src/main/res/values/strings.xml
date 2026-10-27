@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">PubMed TV</string>
+    <string name="scan_hint">Okut, telefonda aç</string>
+    <string name="badge_new">YENİ</string>
+    <string name="citations">%1$d atıf</string>
+</resources>
